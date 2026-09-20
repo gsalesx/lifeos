@@ -1,0 +1,9 @@
+node_modules
+dist
+data
+.DS_Store
+*.local
+.env
+.vite
+.thumbnail
+uploads
