@@ -8,7 +8,6 @@ export function AuthPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [demo, setDemo] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -18,7 +17,7 @@ export function AuthPage() {
     setError('')
     try {
       if (mode === 'login') await store.login(email, password)
-      else await store.register({ name, email, password, demo })
+      else await store.register({ name, email, password })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao entrar')
     } finally {
@@ -50,12 +49,6 @@ export function AuthPage() {
           <label className="mb-4 block text-[11px] font-bold uppercase text-[#a1a1aa]">Senha
             <input type="password" minLength={8} className="mt-1.5 w-full rounded-xl border border-[#e4e4e7] bg-[#fafafa] px-3 py-2.5 text-sm" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
-          {mode === 'register' && (
-            <label className="mb-4 flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
-              Começar com dados de exemplo
-            </label>
-          )}
           {error && <div className="mb-3 rounded-lg bg-[#fef2f2] px-3 py-2 text-xs font-semibold text-[#ef4444]">{error}</div>}
           <button disabled={busy} className="w-full rounded-xl bg-[#18181b] py-2.5 text-sm font-bold text-white disabled:opacity-60">
             {busy ? 'Entrando...' : mode === 'login' ? 'Entrar' : 'Criar conta'}

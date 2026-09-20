@@ -12,6 +12,7 @@ import { StatsPage } from './pages/Stats'
 import { TasksPage } from './pages/Tasks'
 import { TrackingPage } from './pages/Tracking'
 import { VillagePage } from './pages/Village'
+import { Onboarding } from './pages/Onboarding'
 import { useLifeOS } from './store/useStore'
 
 export function App() {
@@ -22,6 +23,7 @@ export function App() {
     return <div className="flex h-full items-center justify-center text-sm text-[#a1a1aa]">Carregando LifeOS...</div>
   }
   if (!store.email) return <AuthPage />
+  if (!store.onboardingDone) return <Onboarding />
 
   return (
     <Routes>

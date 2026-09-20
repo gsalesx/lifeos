@@ -16,6 +16,7 @@ const empty: LifeState = {
   buildings: [],
   focusTaskId: null,
   focusUntil: null,
+  onboardingDone: true,
 }
 
 type Store = LifeState & {
@@ -25,8 +26,16 @@ type Store = LifeState & {
   apply: (state: LifeState & { email?: string }) => void
   bootstrap: () => Promise<boolean>
   login: (email: string, password: string) => Promise<void>
-  register: (input: { name: string; email: string; password: string; demo?: boolean }) => Promise<void>
+  register: (input: { name: string; email: string; password: string }) => Promise<void>
   logout: () => Promise<void>
+  applyOnboarding: (payload: {
+    habits: Array<{ name: string; category: AreaId; frequency?: import('./types').Frequency; xp: number; color: string; iconBg: string; quantitative?: { goal: number; unit: string } }>
+    tasks: Array<{ title: string; date?: string; time?: string; priority?: Priority; area?: AreaId }>
+    events: Array<{ title: string; date: string; time: string; location?: string }>
+    projects: Array<{ name: string; color: string }>
+  }) => Promise<void>
+  completeOnboarding: () => Promise<void>
+  reopenOnboarding: () => Promise<void>
   setName: (name: string) => void
   toggleTask: (id: string) => void
   addTask: (input: { title: string; date?: string; time?: string; projectId?: string; priority?: Priority; area?: AreaId }) => void
@@ -34,7 +43,7 @@ type Store = LifeState & {
   rescheduleTask: (id: string, date: string) => void
   toggleHabit: (id: string, date?: string) => void
   setHabitValue: (id: string, value: number, date?: string) => void
-  addHabit: (input: { name: string; category: AreaId; xp: number; color: string; iconBg: string }) => void
+  addHabit: (input: { name: string; category: AreaId; xp: number; color: string; iconBg: string; frequency?: import('./types').Frequency; quantitative?: { goal: number; unit: string } }) => void
   saveTracking: (partial: Partial<Tracking> & { date: string }) => void
   addEvent: (input: { title: string; date: string; time: string; location?: string }) => void
   addProject: (input: { name: string; color: string }) => void
@@ -69,7 +78,19 @@ export const useLifeOS = create<Store>((set, get) => ({
   },
   logout: async () => {
     await api('/api/auth/logout', { method: 'POST' })
-    set({ ...empty, ready: true, email: '' })
+    set({ ...empty, ready: true, email: '', onboardingDone: true })
+  },
+  applyOnboarding: async (payload) => {
+    const data = await api('/api/onboarding/apply', { method: 'POST', body: JSON.stringify(payload) })
+    get().apply(data.state as LifeState & { email?: string })
+  },
+  completeOnboarding: async () => {
+    const data = await api('/api/onboarding/complete', { method: 'POST' })
+    get().apply(data.state as LifeState & { email?: string })
+  },
+  reopenOnboarding: async () => {
+    const data = await api('/api/onboarding/reset', { method: 'POST' })
+    get().apply(data.state as LifeState & { email?: string })
   },
   setName: (name) => {
     set({ userName: name })

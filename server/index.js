@@ -47,17 +47,15 @@ app.post('/api/auth/register', (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase()
   const password = String(req.body.password || '')
   const name = String(req.body.name || '').trim()
-  const demo = !!req.body.demo
   if (!email || !password || password.length < 8 || !name) {
     return res.status(400).json({ error: 'Nome, e-mail e senha (mín. 8) são obrigatórios' })
   }
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(email)
   if (exists) return res.status(409).json({ error: 'Este e-mail já tem conta' })
   const id = uid('u')
-  db.prepare('INSERT INTO users (id, email, password_hash, name, created_at) VALUES (?, ?, ?, ?, ?)')
+  db.prepare('INSERT INTO users (id, email, password_hash, name, created_at, onboarding_done) VALUES (?, ?, ?, ?, ?, 0)')
     .run(id, email, bcrypt.hashSync(password, 10), name, new Date().toISOString())
-  if (demo) seedDemoUser(id)
-  else starterBuildings(id)
+  starterBuildings(id)
   const sid = uid('s')
   db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(sid, id, Date.now() + SESSION_DAYS * 86400000)
   setSession(res, sid)
@@ -122,10 +120,57 @@ app.patch('/api/tasks/:id', auth, (req, res) => {
 })
 
 app.post('/api/habits', auth, (req, res) => {
-  const { name, category, xp, color, iconBg } = req.body
+  const { name, category, xp, color, iconBg, frequency, quantitative } = req.body
   if (!name) return res.status(400).json({ error: 'Nome obrigatório' })
-  db.prepare(`INSERT INTO habits (id, user_id, name, category, frequency, xp, color, icon_bg) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(uid('h'), req.user.id, name, category || 'saude', JSON.stringify('daily'), xp || 15, color || '#4f46e5', iconBg || '#f4f4f5')
+  const freq = frequency === 'weekdays' || Array.isArray(frequency) ? frequency : 'daily'
+  const goal = quantitative?.goal ? Number(quantitative.goal) : null
+  db.prepare(`INSERT INTO habits (id, user_id, name, category, frequency, xp, color, icon_bg, quant_goal, quant_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(uid('h'), req.user.id, name, category || 'saude', JSON.stringify(freq), xp || 15, color || '#4f46e5', iconBg || '#f4f4f5', goal, quantitative?.unit || null)
+  ok(res, req.user.id)
+})
+
+app.post('/api/onboarding/apply', auth, (req, res) => {
+  const habits = Array.isArray(req.body.habits) ? req.body.habits : []
+  const tasks = Array.isArray(req.body.tasks) ? req.body.tasks : []
+  const events = Array.isArray(req.body.events) ? req.body.events : []
+  const projects = Array.isArray(req.body.projects) ? req.body.projects : []
+  const today = new Date().toISOString().slice(0, 10)
+  const tx = db.transaction(() => {
+    const insH = db.prepare(`INSERT INTO habits (id, user_id, name, category, frequency, xp, color, icon_bg, quant_goal, quant_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    for (const h of habits.slice(0, 20)) {
+      if (!h?.name) continue
+      const freq = h.frequency === 'weekdays' || Array.isArray(h.frequency) ? h.frequency : 'daily'
+      const goal = h.quantitative?.goal ? Number(h.quantitative.goal) : null
+      insH.run(uid('h'), req.user.id, String(h.name).slice(0, 80), h.category || 'saude', JSON.stringify(freq), h.xp || 15, h.color || '#4f46e5', h.iconBg || '#f4f4f5', goal, h.quantitative?.unit || null)
+    }
+    const insP = db.prepare('INSERT INTO projects (id, user_id, name, status, color, icon) VALUES (?, ?, ?, ?, ?, ?)')
+    for (const p of projects.slice(0, 10)) {
+      if (!p?.name) continue
+      insP.run(uid('p'), req.user.id, String(p.name).slice(0, 80), 'planejamento', p.color || '#4f46e5', 'folder')
+    }
+    const insT = db.prepare(`INSERT INTO tasks (id, user_id, title, project_id, area, date, time, priority, done, archived, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)`)
+    for (const t of tasks.slice(0, 20)) {
+      if (!t?.title) continue
+      insT.run(uid('t'), req.user.id, String(t.title).slice(0, 120), t.projectId || null, t.area || null, t.date || today, t.time || null, t.priority || 'media', today)
+    }
+    const insE = db.prepare('INSERT INTO events (id, user_id, title, date, time, location, done) VALUES (?, ?, ?, ?, ?, ?, 0)')
+    for (const e of events.slice(0, 20)) {
+      if (!e?.title) continue
+      insE.run(uid('e'), req.user.id, String(e.title).slice(0, 80), e.date || today, e.time || '09:00', e.location || null)
+    }
+    db.prepare('UPDATE users SET onboarding_done = 1 WHERE id = ?').run(req.user.id)
+  })
+  tx()
+  ok(res, req.user.id)
+})
+
+app.post('/api/onboarding/complete', auth, (req, res) => {
+  db.prepare('UPDATE users SET onboarding_done = 1 WHERE id = ?').run(req.user.id)
+  ok(res, req.user.id)
+})
+
+app.post('/api/onboarding/reset', auth, (req, res) => {
+  db.prepare('UPDATE users SET onboarding_done = 0 WHERE id = ?').run(req.user.id)
   ok(res, req.user.id)
 })
 
@@ -209,9 +254,12 @@ function ensureDemo() {
   const email = (process.env.DEMO_EMAIL || 'demo@lifeos.app').toLowerCase()
   const password = process.env.DEMO_PASSWORD || 'LifeOS-Demo-2026!'
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email)
-  if (existing) return
+  if (existing) {
+    db.prepare('UPDATE users SET onboarding_done = 1 WHERE id = ?').run(existing.id)
+    return
+  }
   const id = uid('u')
-  db.prepare('INSERT INTO users (id, email, password_hash, name, created_at) VALUES (?, ?, ?, ?, ?)')
+  db.prepare('INSERT INTO users (id, email, password_hash, name, created_at, onboarding_done) VALUES (?, ?, ?, ?, ?, 1)')
     .run(id, email, bcrypt.hashSync(password, 10), 'Lucas', new Date().toISOString())
   seedDemoUser(id)
   console.log(`Conta demo criada: ${email}`)

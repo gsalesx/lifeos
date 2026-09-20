@@ -103,6 +103,17 @@ CREATE INDEX IF NOT EXISTS idx_habits_user ON habits(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 `)
 
+try { db.exec('ALTER TABLE users ADD COLUMN onboarding_done INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
+db.exec(`
+UPDATE users SET onboarding_done = 1
+WHERE onboarding_done = 0 AND (
+  email = 'demo@lifeos.app'
+  OR id IN (SELECT user_id FROM tasks)
+  OR id IN (SELECT user_id FROM habits)
+  OR id IN (SELECT user_id FROM events)
+)
+`)
+
 export function uid(prefix = 'id') {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`
 }
@@ -147,6 +158,7 @@ export function loadState(userId) {
   return {
     userName: user.name,
     email: user.email,
+    onboardingDone: !!user.onboarding_done,
     xp: user.xp,
     nextLevelXp: user.next_level_xp,
     level: user.level,

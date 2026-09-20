@@ -72,6 +72,9 @@ export function Dashboard() {
                 <span key={h} className="text-[10px] font-bold uppercase tracking-wide text-[#a1a1aa]">{h}</span>
               ))}
             </div>
+            {dayTasks.length === 0 && (
+              <div className="border-t border-[#f0f0f1] px-5 py-8 text-center text-sm text-[#a1a1aa]">Nenhuma tarefa hoje. Adicione a primeira quando quiser.</div>
+            )}
             {dayTasks.map((t) => {
               const prio = PRIORITY_META[t.priority]
               return (
@@ -131,8 +134,9 @@ export function Dashboard() {
 
           <div className="rounded-2xl border border-[#e4e4e7] bg-white px-[22px] py-5">
             <div className="mb-5 text-[10px] font-bold uppercase tracking-[1px] text-[#a1a1aa]">Agenda de hoje</div>
-            <div className="relative pl-[52px]">
-              <div className="absolute top-2 bottom-2 left-9 w-px bg-[#e4e4e7]" />
+            <div className={events.length ? 'relative pl-[52px]' : ''}>
+              {events.length === 0 && <div className="text-sm text-[#a1a1aa]">Nada na agenda hoje.</div>}
+              {events.length > 0 && <div className="absolute top-2 bottom-2 left-9 w-px bg-[#e4e4e7]" />}
               {events.map((e, i) => {
                 const past = e.done || e.time < '12:00'
                 const current = !e.done && i === events.findIndex((x) => !x.done)
@@ -179,6 +183,7 @@ export function Dashboard() {
               <span className="text-xs text-[#a1a1aa]">{dueHabits.filter((h) => habitDone(h, today)).length}/{dueHabits.length} hoje</span>
             </div>
             <div className="flex flex-col gap-2">
+              {dueHabits.length === 0 && <div className="text-sm text-[#a1a1aa]">Nenhum hábito ainda. Crie o primeiro quando quiser.</div>}
               {dueHabits.map((h) => {
                 const doneH = habitDone(h, today)
                 return (

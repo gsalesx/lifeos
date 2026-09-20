@@ -225,6 +225,7 @@ export function Layout() {
               <input className="mt-1.5 w-full rounded-lg border border-[#e4e4e7] px-3 py-2 text-[13px]" value={store.userName} onChange={(e) => store.setName(e.target.value)} />
             </label>
             <p className="mb-4 text-xs text-[#a1a1aa]">{store.email}</p>
+            <button className="mb-2 w-full rounded-lg border border-[#e4e4e7] py-2 text-xs font-semibold" onClick={() => { void store.reopenOnboarding(); setSettings(false) }}>Ver guia inicial</button>
             <button className="w-full rounded-lg bg-[#18181b] py-2 text-xs font-semibold text-white" onClick={() => { void store.logout(); setSettings(false) }}>Sair</button>
           </div>
         </div>

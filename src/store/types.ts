@@ -77,6 +77,7 @@ export type Achievement = {
 
 export type LifeState = {
   userName: string
+  onboardingDone?: boolean
   xp: number
   nextLevelXp: number
   level: number
