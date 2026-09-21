@@ -120,12 +120,12 @@ app.patch('/api/tasks/:id', auth, (req, res) => {
 })
 
 app.post('/api/habits', auth, (req, res) => {
-  const { name, category, xp, color, iconBg, frequency, quantitative } = req.body
+  const { name, category, xp, color, iconBg, frequency, quantitative, time } = req.body
   if (!name) return res.status(400).json({ error: 'Nome obrigatório' })
   const freq = frequency === 'weekdays' || Array.isArray(frequency) ? frequency : 'daily'
   const goal = quantitative?.goal ? Number(quantitative.goal) : null
-  db.prepare(`INSERT INTO habits (id, user_id, name, category, frequency, xp, color, icon_bg, quant_goal, quant_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(uid('h'), req.user.id, name, category || 'saude', JSON.stringify(freq), xp || 15, color || '#4f46e5', iconBg || '#f4f4f5', goal, quantitative?.unit || null)
+  db.prepare(`INSERT INTO habits (id, user_id, name, category, frequency, xp, color, icon_bg, quant_goal, quant_unit, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(uid('h'), req.user.id, name, category || 'saude', JSON.stringify(freq), xp || 15, color || '#4f46e5', iconBg || '#f4f4f5', goal, quantitative?.unit || null, time || null)
   ok(res, req.user.id)
 })
 
@@ -136,27 +136,28 @@ app.post('/api/onboarding/apply', auth, (req, res) => {
   const projects = Array.isArray(req.body.projects) ? req.body.projects : []
   const today = new Date().toISOString().slice(0, 10)
   const tx = db.transaction(() => {
-    const insH = db.prepare(`INSERT INTO habits (id, user_id, name, category, frequency, xp, color, icon_bg, quant_goal, quant_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    const insH = db.prepare(`INSERT INTO habits (id, user_id, name, category, frequency, xp, color, icon_bg, quant_goal, quant_unit, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     for (const h of habits.slice(0, 20)) {
       if (!h?.name) continue
       const freq = h.frequency === 'weekdays' || Array.isArray(h.frequency) ? h.frequency : 'daily'
       const goal = h.quantitative?.goal ? Number(h.quantitative.goal) : null
-      insH.run(uid('h'), req.user.id, String(h.name).slice(0, 80), h.category || 'saude', JSON.stringify(freq), h.xp || 15, h.color || '#4f46e5', h.iconBg || '#f4f4f5', goal, h.quantitative?.unit || null)
+      insH.run(uid('h'), req.user.id, String(h.name).slice(0, 80), h.category || 'saude', JSON.stringify(freq), h.xp || 15, h.color || '#4f46e5', h.iconBg || '#f4f4f5', goal, h.quantitative?.unit || null, h.time || null)
     }
-    const insP = db.prepare('INSERT INTO projects (id, user_id, name, status, color, icon) VALUES (?, ?, ?, ?, ?, ?)')
+    const insP = db.prepare('INSERT INTO projects (id, user_id, name, status, color, icon, description) VALUES (?, ?, ?, ?, ?, ?, ?)')
     for (const p of projects.slice(0, 10)) {
       if (!p?.name) continue
-      insP.run(uid('p'), req.user.id, String(p.name).slice(0, 80), 'planejamento', p.color || '#4f46e5', 'folder')
+      insP.run(uid('p'), req.user.id, String(p.name).slice(0, 80), 'planejamento', p.color || '#4f46e5', 'folder', p.description || '')
     }
     const insT = db.prepare(`INSERT INTO tasks (id, user_id, title, project_id, area, date, time, priority, done, archived, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)`)
     for (const t of tasks.slice(0, 20)) {
       if (!t?.title) continue
       insT.run(uid('t'), req.user.id, String(t.title).slice(0, 120), t.projectId || null, t.area || null, t.date || today, t.time || null, t.priority || 'media', today)
     }
-    const insE = db.prepare('INSERT INTO events (id, user_id, title, date, time, location, done) VALUES (?, ?, ?, ?, ?, ?, 0)')
+    const insE = db.prepare('INSERT INTO events (id, user_id, title, date, time, location, done, recurrence, weekdays) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)')
     for (const e of events.slice(0, 20)) {
       if (!e?.title) continue
-      insE.run(uid('e'), req.user.id, String(e.title).slice(0, 80), e.date || today, e.time || '09:00', e.location || null)
+      const weekly = e.recurrence === 'weekly' && Array.isArray(e.weekdays) && e.weekdays.length
+      insE.run(uid('e'), req.user.id, String(e.title).slice(0, 80), e.date || today, e.time || '09:00', e.location || null, weekly ? 'weekly' : null, weekly ? JSON.stringify(e.weekdays) : null)
     }
     db.prepare('UPDATE users SET onboarding_done = 1 WHERE id = ?').run(req.user.id)
   })
@@ -200,18 +201,33 @@ app.post('/api/habits/:id/value', auth, (req, res) => {
 })
 
 app.post('/api/events', auth, (req, res) => {
-  const { title, date, time, location } = req.body
-  if (!title || !date) return res.status(400).json({ error: 'Título e data obrigatórios' })
-  db.prepare('INSERT INTO events (id, user_id, title, date, time, location, done) VALUES (?, ?, ?, ?, ?, ?, 0)')
-    .run(uid('e'), req.user.id, title, date, time || '09:00', location || null)
+  const { title, date, time, location, recurrence, weekdays } = req.body
+  const weekly = recurrence === 'weekly' && Array.isArray(weekdays) && weekdays.length
+  if (!title || (!weekly && !date)) return res.status(400).json({ error: 'Título e data (ou dias da semana) são obrigatórios' })
+  const today = new Date().toISOString().slice(0, 10)
+  db.prepare('INSERT INTO events (id, user_id, title, date, time, location, done, recurrence, weekdays) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)')
+    .run(uid('e'), req.user.id, title, date || today, time || '09:00', location || null, weekly ? 'weekly' : null, weekly ? JSON.stringify(weekdays) : null)
   ok(res, req.user.id)
 })
 
 app.post('/api/projects', auth, (req, res) => {
-  const { name, color } = req.body
+  const { name, color, description } = req.body
   if (!name) return res.status(400).json({ error: 'Nome obrigatório' })
-  db.prepare('INSERT INTO projects (id, user_id, name, status, color, icon) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(uid('p'), req.user.id, name, 'planejamento', color || '#4f46e5', 'folder')
+  db.prepare('INSERT INTO projects (id, user_id, name, status, color, icon, description) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(uid('p'), req.user.id, name, 'planejamento', color || '#4f46e5', 'folder', description || '')
+  ok(res, req.user.id)
+})
+
+app.patch('/api/projects/:id', auth, (req, res) => {
+  const p = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id)
+  if (!p) return res.status(404).json({ error: 'Projeto não encontrado' })
+  db.prepare('UPDATE projects SET name = ?, status = ?, color = ?, description = ? WHERE id = ?').run(
+    req.body.name === undefined ? p.name : String(req.body.name).trim() || p.name,
+    req.body.status === undefined ? p.status : req.body.status,
+    req.body.color === undefined ? p.color : req.body.color,
+    req.body.description === undefined ? (p.description || '') : String(req.body.description),
+    p.id,
+  )
   ok(res, req.user.id)
 })
 

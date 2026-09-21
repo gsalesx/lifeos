@@ -7,6 +7,7 @@ import { CalendarPage } from './pages/Calendar'
 import { Dashboard } from './pages/Dashboard'
 import { HabitsPage } from './pages/Habits'
 import { HermesPage } from './pages/Hermes'
+import { ProjectDetailPage } from './pages/ProjectDetail'
 import { ProjectsPage } from './pages/Projects'
 import { StatsPage } from './pages/Stats'
 import { TasksPage } from './pages/Tasks'
@@ -35,6 +36,7 @@ export function App() {
         <Route path="tracking" element={<TrackingPage />} />
         <Route path="estatisticas" element={<StatsPage />} />
         <Route path="projetos" element={<ProjectsPage />} />
+        <Route path="projetos/:id" element={<ProjectDetailPage />} />
         <Route path="vila" element={<VillagePage />} />
         <Route path="conquistas" element={<AchievementsPage />} />
         <Route path="hermes" element={<HermesPage />} />

@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { AddAnything } from '../components/AddAnything'
 import { I } from '../components/Icons'
 import { MONTHS, monthGrid, todayISO } from '../lib/dates'
-import { dayScore, habitDone, habitDueOn, PRIORITY_META } from '../lib/logic'
+import { dayScore, eventOnDate, habitDone, habitDueOn, PRIORITY_META } from '../lib/logic'
 import { useLifeOS } from '../store/useStore'
 
 export function CalendarPage() {
@@ -24,7 +24,7 @@ export function CalendarPage() {
 
   const dayTasks = s.tasks.filter((t) => !t.archived && t.date === sel)
   const dayHabits = s.habits.filter((h) => habitDueOn(h, sel))
-  const dayEvents = s.events.filter((e) => e.date === sel).sort((a, b) => a.time.localeCompare(b.time))
+  const dayEvents = s.events.filter((e) => eventOnDate(e, sel)).sort((a, b) => a.time.localeCompare(b.time))
   const score = dayScore(s.habits, s.tasks, s.tracking[sel], sel)
   const dateObj = new Date(sel + 'T12:00:00')
   const dateLabel = dateObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -32,9 +32,9 @@ export function CalendarPage() {
 
   const agenda = useMemo(() => {
     const items = [
-      ...dayHabits.map((h) => ({ id: h.id, time: '07:00', type: 'hábito', name: h.name, done: habitDone(h, sel), accent: h.color, sub: '' })),
+      ...dayHabits.map((h) => ({ id: h.id, time: h.time ?? '—', type: 'hábito', name: h.name, done: habitDone(h, sel), accent: h.color, sub: '' })),
       ...dayTasks.map((t) => ({ id: t.id, time: t.time ?? '—', type: 'tarefa', name: t.title, done: t.done, accent: '#4f46e5', sub: s.projects.find((p) => p.id === t.projectId)?.name ?? '' })),
-      ...dayEvents.map((e) => ({ id: e.id, time: e.time, type: 'evento', name: e.title, done: !!e.done, accent: '#f97316', sub: e.location ?? '' })),
+      ...dayEvents.map((e) => ({ id: e.id, time: e.time, type: 'evento', name: e.title, done: !!e.done, accent: '#f97316', sub: e.recurrence === 'weekly' ? `Toda semana${e.location ? ` · ${e.location}` : ''}` : e.location ?? '' })),
     ].sort((a, b) => a.time.localeCompare(b.time))
     const nowIdx = items.findIndex((x) => !x.done)
     return items.map((item, i) => ({ ...item, isNow: i === nowIdx && sel === today }))
@@ -60,7 +60,7 @@ export function CalendarPage() {
             const isToday = iso === today
             const isSel = iso === sel
             const future = iso > today
-            const has = s.tasks.some((t) => t.date === iso) || s.habits.some((h) => habitDone(h, iso)) || s.events.some((e) => e.date === iso)
+            const has = s.tasks.some((t) => t.date === iso) || s.habits.some((h) => habitDone(h, iso)) || s.events.some((e) => eventOnDate(e, iso))
             return (
               <button key={iso} onClick={() => setSel(iso)} className="flex h-8 w-full flex-col items-center justify-center gap-0.5 rounded-lg" style={{ background: isSel ? '#18181b' : isToday ? '#4f46e5' : 'transparent' }}>
                 <span className="text-[11px] leading-none" style={{ fontWeight: isToday ? 800 : 500, color: isSel || isToday ? '#fff' : future ? '#c4c4c6' : '#18181b' }}>{c.day}</span>

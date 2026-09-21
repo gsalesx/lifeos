@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { todayISO } from '../lib/dates'
-import { dayScore, habitDone, habitDueOn, hermesTips, PRIORITY_META } from '../lib/logic'
+import { dayScore, eventOnDate, habitDone, habitDueOn, hermesTips, PRIORITY_META } from '../lib/logic'
 import { useLifeOS } from '../store/useStore'
 import { I } from '../components/Icons'
 import { useEffect, useState } from 'react'
@@ -19,7 +19,7 @@ export function Dashboard() {
   const projectOf = (id?: string) => s.projects.find((p) => p.id === id)
   const dueHabits = s.habits.filter((h) => habitDueOn(h, today))
   const tips = hermesTips({ tasks: s.tasks, habits: s.habits, tracking: s.tracking, date: today })
-  const events = s.events.filter((e) => e.date === today).sort((a, b) => a.time.localeCompare(b.time))
+  const events = s.events.filter((e) => eventOnDate(e, today)).sort((a, b) => a.time.localeCompare(b.time))
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -114,7 +114,7 @@ export function Dashboard() {
                 const pts = s.tasks.filter((t) => t.projectId === p.id && !t.archived)
                 const pct = pts.length ? Math.round((pts.filter((t) => t.done).length / pts.length) * 100) : 0
                 return (
-                  <div key={p.id} className="rounded-[14px] border border-[#e4e4e7] bg-white p-4">
+                  <Link key={p.id} to={`/projetos/${p.id}`} className="rounded-[14px] border border-[#e4e4e7] bg-white p-4">
                     <div className="mb-3 flex items-center gap-2.5">
                       <div className="flex size-8 items-center justify-center rounded-lg" style={{ background: `${p.color}18` }}>
                         <I.bolt size={15} color={p.color} />
@@ -126,7 +126,7 @@ export function Dashboard() {
                     </div>
                     <div className="mb-1.5 h-[5px] overflow-hidden rounded-[3px] bg-[#f0f0f1]"><div className="h-full rounded-[3px]" style={{ width: `${pct}%`, background: p.color }} /></div>
                     <div className="flex justify-between text-[10px] font-semibold text-[#a1a1aa]"><span>{pct}% concluído</span><span>{pts.length} tarefas</span></div>
-                  </div>
+                  </Link>
                 )
               })}
             </div>

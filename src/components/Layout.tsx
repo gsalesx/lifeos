@@ -161,7 +161,7 @@ export function Layout() {
             </button>
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-[15px] font-extrabold tracking-tight sm:text-[17px]">
-                {loc.pathname === '/' ? `${greeting()}, ${store.userName}` : TITLES[loc.pathname] ?? 'LifeOS'}
+                {loc.pathname === '/' ? `${greeting()}, ${store.userName}` : loc.pathname.startsWith('/projetos/') ? (store.projects.find((p) => loc.pathname === `/projetos/${p.id}`)?.name ?? 'Projeto') : TITLES[loc.pathname] ?? 'LifeOS'}
               </h1>
               <p className="mt-px hidden text-[11px] text-[#a1a1aa] sm:block">{longDate(today)} · Semana {weekNumber(today)}</p>
             </div>

@@ -29,10 +29,10 @@ type Store = LifeState & {
   register: (input: { name: string; email: string; password: string }) => Promise<void>
   logout: () => Promise<void>
   applyOnboarding: (payload: {
-    habits: Array<{ name: string; category: AreaId; frequency?: import('./types').Frequency; xp: number; color: string; iconBg: string; quantitative?: { goal: number; unit: string } }>
+    habits: Array<{ name: string; category: AreaId; frequency?: import('./types').Frequency; xp: number; color: string; iconBg: string; time?: string; quantitative?: { goal: number; unit: string } }>
     tasks: Array<{ title: string; date?: string; time?: string; priority?: Priority; area?: AreaId }>
-    events: Array<{ title: string; date: string; time: string; location?: string }>
-    projects: Array<{ name: string; color: string }>
+    events: Array<{ title: string; date: string; time: string; location?: string; recurrence?: 'weekly'; weekdays?: number[] }>
+    projects: Array<{ name: string; color: string; description?: string }>
   }) => Promise<void>
   completeOnboarding: () => Promise<void>
   reopenOnboarding: () => Promise<void>
@@ -43,10 +43,11 @@ type Store = LifeState & {
   rescheduleTask: (id: string, date: string) => void
   toggleHabit: (id: string, date?: string) => void
   setHabitValue: (id: string, value: number, date?: string) => void
-  addHabit: (input: { name: string; category: AreaId; xp: number; color: string; iconBg: string; frequency?: import('./types').Frequency; quantitative?: { goal: number; unit: string } }) => void
+  addHabit: (input: { name: string; category: AreaId; xp: number; color: string; iconBg: string; frequency?: import('./types').Frequency; time?: string; quantitative?: { goal: number; unit: string } }) => void
   saveTracking: (partial: Partial<Tracking> & { date: string }) => void
-  addEvent: (input: { title: string; date: string; time: string; location?: string }) => void
-  addProject: (input: { name: string; color: string }) => void
+  addEvent: (input: { title: string; date: string; time: string; location?: string; recurrence?: 'weekly'; weekdays?: number[] }) => void
+  addProject: (input: { name: string; color: string; description?: string }) => void
+  updateProject: (id: string, patch: { name?: string; status?: import('./types').ProjectStatus; description?: string; color?: string }) => void
   startFocus: (taskId: string) => void
   stopFocus: () => void
   resetDemo: () => void
@@ -135,6 +136,9 @@ export const useLifeOS = create<Store>((set, get) => ({
   },
   addProject: (input) => {
     void api('/api/projects', { method: 'POST', body: JSON.stringify(input) }).then((d) => get().apply(d.state))
+  },
+  updateProject: (id, patch) => {
+    void api(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }).then((d) => get().apply(d.state))
   },
   startFocus: (taskId) => {
     set({ focusTaskId: taskId, focusUntil: Date.now() + 25 * 60 * 1000 })

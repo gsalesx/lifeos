@@ -27,6 +27,7 @@ export type Habit = {
   color: string
   iconBg: string
   quantitative?: { goal: number; unit: string }
+  time?: string
   logs: Record<string, number | boolean>
 }
 
@@ -37,6 +38,8 @@ export type EventItem = {
   time: string
   location?: string
   done?: boolean
+  recurrence?: 'weekly'
+  weekdays?: number[]
 }
 
 export type Project = {
@@ -45,6 +48,7 @@ export type Project = {
   status: ProjectStatus
   color: string
   icon: string
+  description?: string
 }
 
 export type Tracking = {

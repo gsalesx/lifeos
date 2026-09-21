@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AddAnything } from '../components/AddAnything'
 import { I } from '../components/Icons'
 import { lastNDays, todayISO } from '../lib/dates'
-import { AREA_META, habitDone, habitDueOn, habitLateDays, habitStreak } from '../lib/logic'
+import { AREA_META, freqLabel, habitDone, habitDueOn, habitLateDays, habitStreak } from '../lib/logic'
 import { useLifeOS } from '../store/useStore'
 import type { AreaId } from '../store/types'
 
@@ -52,7 +52,7 @@ export function HabitsPage() {
                 <div className="flex size-[42px] shrink-0 items-center justify-center rounded-xl text-sm font-extrabold" style={{ background: h.iconBg, color: h.color }}>{h.name[0]}</div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[15px] font-bold tracking-tight">{h.name}</div>
-                  <div className="mt-0.5 text-xs text-[#a1a1aa]">{AREA_META[h.category].label} · {freqLabel(h.frequency)} · +{h.xp} XP</div>
+                  <div className="mt-0.5 text-xs text-[#a1a1aa]">{AREA_META[h.category].label} · {freqLabel(h.frequency)}{h.time ? ` · ${h.time}` : ''} · +{h.xp} XP</div>
                 </div>
                 {h.quantitative && (
                   <div className="flex shrink-0 items-center gap-2">
@@ -146,9 +146,4 @@ function Chip({ active, children, onClick }: { active: boolean; children: string
 }
 function Legend({ c, t }: { c: string; t: string }) {
   return <div className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: c }} /><span className="text-[11px] font-medium text-[#71717a]">{t}</span></div>
-}
-function freqLabel(f: 'daily' | 'weekdays' | number[]) {
-  if (f === 'daily') return 'Diário'
-  if (f === 'weekdays') return 'Seg a Sex'
-  return 'Alguns dias'
 }

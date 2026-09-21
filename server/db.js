@@ -104,6 +104,10 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 `)
 
 try { db.exec('ALTER TABLE users ADD COLUMN onboarding_done INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
+try { db.exec('ALTER TABLE habits ADD COLUMN time TEXT') } catch { /* already exists */ }
+try { db.exec('ALTER TABLE events ADD COLUMN recurrence TEXT') } catch { /* already exists */ }
+try { db.exec('ALTER TABLE events ADD COLUMN weekdays TEXT') } catch { /* already exists */ }
+try { db.exec('ALTER TABLE projects ADD COLUMN description TEXT') } catch { /* already exists */ }
 db.exec(`
 UPDATE users SET onboarding_done = 1
 WHERE onboarding_done = 0 AND (
@@ -164,7 +168,7 @@ export function loadState(userId) {
     level: user.level,
     focusTaskId: user.focus_task_id,
     focusUntil: user.focus_until,
-    projects: projects.map((p) => ({ id: p.id, name: p.name, status: p.status, color: p.color, icon: p.icon })),
+    projects: projects.map((p) => ({ id: p.id, name: p.name, status: p.status, color: p.color, icon: p.icon, description: p.description || '' })),
     tasks: tasks.map((t) => ({
       id: t.id,
       title: t.title,
@@ -186,6 +190,7 @@ export function loadState(userId) {
       xp: h.xp,
       color: h.color,
       iconBg: h.icon_bg,
+      time: h.time || undefined,
       quantitative: h.quant_goal ? { goal: h.quant_goal, unit: h.quant_unit || 'un' } : undefined,
       logs: logsByHabit[h.id] || {},
     })),
@@ -196,6 +201,8 @@ export function loadState(userId) {
       time: e.time,
       location: e.location || undefined,
       done: !!e.done,
+      recurrence: e.recurrence === 'weekly' ? 'weekly' : undefined,
+      weekdays: e.weekdays ? JSON.parse(e.weekdays) : undefined,
     })),
     tracking,
     buildings: buildings.map((b) => ({

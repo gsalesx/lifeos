@@ -1,5 +1,5 @@
 import { addDays, lastNDays, minutesBetween, todayISO, weekday } from './dates'
-import type { AreaId, Habit, Task, Tracking } from '../store/types'
+import type { AreaId, EventItem, Frequency, Habit, Task, Tracking } from '../store/types'
 
 export const AREA_META: Record<AreaId, { label: string; color: string }> = {
   fe: { label: 'Fé', color: '#f59e0b' },
@@ -13,6 +13,31 @@ export const PRIORITY_META = {
   alta: { label: 'Alta', color: '#ef4444', bg: '#fef2f2' },
   media: { label: 'Média', color: '#71717a', bg: '#f4f4f5' },
   baixa: { label: 'Baixa', color: '#71717a', bg: '#f4f4f5' },
+}
+
+export function eventOnDate(event: EventItem, iso: string) {
+  if (event.recurrence === 'weekly' && event.weekdays?.length) return event.weekdays.includes(weekday(iso))
+  return event.date === iso
+}
+
+export function daysFromFrequency(f: Frequency): number[] {
+  if (f === 'daily') return [0, 1, 2, 3, 4, 5, 6]
+  if (f === 'weekdays') return [1, 2, 3, 4, 5]
+  return [...f].sort((a, b) => a - b)
+}
+
+export function frequencyFromDays(days: number[]): Frequency {
+  const d = [...new Set(days)].sort((a, b) => a - b)
+  if (d.length === 7) return 'daily'
+  if (d.length === 5 && d.join() === '1,2,3,4,5') return 'weekdays'
+  return d
+}
+
+export function freqLabel(f: Frequency) {
+  if (f === 'daily') return 'Todo dia'
+  if (f === 'weekdays') return 'Seg a sex'
+  const names = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+  return f.map((n) => names[n]).join(', ')
 }
 
 export function habitDueOn(habit: Habit, iso: string) {
