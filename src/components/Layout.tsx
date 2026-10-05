@@ -5,6 +5,7 @@ import { AREA_META, areaScore, habitDueOn, habitDone } from '../lib/logic'
 import { useLifeOS } from '../store/useStore'
 import { I } from './Icons'
 import { AddAnything } from './AddAnything'
+import { Settings } from './Settings'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: I.grid, end: true },
@@ -217,19 +218,7 @@ export function Layout() {
       </nav>
 
       {addOpen && <AddAnything onClose={() => setAddOpen(false)} />}
-      {settings && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setSettings(false)}>
-          <div className="w-full max-w-sm rounded-t-2xl bg-white p-5 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-3 text-[15px] font-extrabold">Configurações</h2>
-            <label className="mb-3 block text-[11px] font-bold uppercase text-[#a1a1aa]">Seu nome
-              <input className="mt-1.5 w-full rounded-lg border border-[#e4e4e7] px-3 py-2 text-[13px]" value={store.userName} onChange={(e) => store.setName(e.target.value)} />
-            </label>
-            <p className="mb-4 text-xs text-[#a1a1aa]">{store.email}</p>
-            <button className="mb-2 w-full rounded-lg border border-[#e4e4e7] py-2 text-xs font-semibold" onClick={() => { void store.reopenOnboarding(); setSettings(false) }}>Ver guia inicial</button>
-            <button className="w-full rounded-lg bg-[#18181b] py-2 text-xs font-semibold text-white" onClick={() => { void store.logout(); setSettings(false) }}>Sair</button>
-          </div>
-        </div>
-      )}
+      {settings && <Settings onClose={() => setSettings(false)} />}
     </div>
   )
 }

@@ -17,6 +17,8 @@ const empty: LifeState = {
   focusTaskId: null,
   focusUntil: null,
   onboardingDone: true,
+  googleConnected: false,
+  calendarLastSync: null,
 }
 
 type Store = LifeState & {
@@ -51,6 +53,7 @@ type Store = LifeState & {
   startFocus: (taskId: string) => void
   stopFocus: () => void
   resetDemo: () => void
+  syncCalendar: () => Promise<void>
 }
 
 export const useLifeOS = create<Store>((set, get) => ({
@@ -149,6 +152,10 @@ export const useLifeOS = create<Store>((set, get) => ({
     void api('/api/focus/stop', { method: 'POST' }).then((d) => get().apply(d.state))
   },
   resetDemo: () => {},
+  syncCalendar: async () => {
+    const data = await api<{ state: LifeState }>('/api/calendar/sync', { method: 'POST' })
+    get().apply(data.state)
+  },
 }))
 
 export type { EventItem, Habit, Project, Task, Tracking }

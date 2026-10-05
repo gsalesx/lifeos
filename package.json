@@ -10,7 +10,8 @@
     "dev:api": "node server/index.js",
     "build": "tsc -p tsconfig.app.json --noEmit && vite build",
     "start": "node server/index.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
