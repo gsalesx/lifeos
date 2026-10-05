@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { I } from './Icons'
 import { api } from '../store/api'
 import { useLifeOS } from '../store/useStore'
 
@@ -68,7 +69,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-3 text-[15px] font-extrabold">Configurações</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[15px] font-extrabold">Configurações</h2>
+          <button className="rounded-lg p-1 hover:bg-[#f4f4f5]" onClick={onClose} aria-label="Fechar">
+            <I.x size={16} color="#a1a1aa" />
+          </button>
+        </div>
         <label className="mb-3 block text-[11px] font-bold uppercase text-[#a1a1aa]">Seu nome
           <input className="mt-1.5 w-full rounded-lg border border-[#e4e4e7] px-3 py-2 text-[13px]" value={store.userName} onChange={(e) => store.setName(e.target.value)} />
         </label>
