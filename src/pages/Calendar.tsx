@@ -13,6 +13,8 @@ export function CalendarPage() {
   const [month, setMonth] = useState(now.getMonth())
   const [sel, setSel] = useState(today)
   const [add, setAdd] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState('')
   const cells = monthGrid(year, month)
   const label = `${MONTHS[month][0].toUpperCase()}${MONTHS[month].slice(1)} ${year}`
 
@@ -34,7 +36,15 @@ export function CalendarPage() {
     const items = [
       ...dayHabits.map((h) => ({ id: h.id, time: h.time ?? '—', type: 'hábito', name: h.name, done: habitDone(h, sel), accent: h.color, sub: '' })),
       ...dayTasks.map((t) => ({ id: t.id, time: t.time ?? '—', type: 'tarefa', name: t.title, done: t.done, accent: '#4f46e5', sub: s.projects.find((p) => p.id === t.projectId)?.name ?? '' })),
-      ...dayEvents.map((e) => ({ id: e.id, time: e.time, type: 'evento', name: e.title, done: !!e.done, accent: '#f97316', sub: e.recurrence === 'weekly' ? `Toda semana${e.location ? ` · ${e.location}` : ''}` : e.location ?? '' })),
+      ...dayEvents.map((e) => ({
+        id: e.id,
+        time: e.time,
+        type: e.origin === 'google' ? 'google' : 'evento',
+        name: e.title,
+        done: !!e.done,
+        accent: e.origin === 'google' ? '#4285F4' : '#f97316',
+        sub: e.recurrence === 'weekly' ? `Toda semana${e.location ? ` · ${e.location}` : ''}` : e.location ?? '',
+      })),
     ].sort((a, b) => a.time.localeCompare(b.time))
     const nowIdx = items.findIndex((x) => !x.done)
     return items.map((item, i) => ({ ...item, isNow: i === nowIdx && sel === today }))
@@ -93,8 +103,21 @@ export function CalendarPage() {
         <div className="sticky top-0 z-2 flex items-center gap-4 border-b border-[#e4e4e7] bg-white px-4 py-4 sm:px-6">
           <div>
             <h2 className="text-xl font-extrabold tracking-tight capitalize">{dateLabel}</h2>
-            <p className="mt-0.5 text-[11px] text-[#a1a1aa]">{dayTasks.length} tarefas · {dayHabits.length} hábitos · {dayEvents.length} eventos</p>
+            <p className="mt-0.5 text-[11px] text-[#a1a1aa]">{dayTasks.length} tarefas · {dayHabits.length} hábitos · {dayEvents.length} eventos{syncError ? ` · ${syncError}` : ''}</p>
           </div>
+          {s.googleConnected && (
+            <button
+              disabled={syncing}
+              onClick={() => {
+                setSyncing(true)
+                setSyncError('')
+                void s.syncCalendar().catch((err) => setSyncError(err instanceof Error ? err.message : 'Falha na sync')).finally(() => setSyncing(false))
+              }}
+              className="rounded-[9px] border border-[#e4e4e7] px-3 py-2 text-xs font-bold text-[#52525b] disabled:opacity-60"
+            >
+              {syncing ? 'Sincronizando...' : 'Sincronizar Google'}
+            </button>
+          )}
           <button onClick={() => setAdd(true)} className="ml-auto flex items-center gap-1.5 rounded-[9px] bg-[#18181b] px-4 py-2 text-xs font-bold text-white">
             <I.plus size={12} strokeWidth={3} /> Adicionar
           </button>

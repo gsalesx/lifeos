@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
+import { uid } from './ids.js'
 
 const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data')
 fs.mkdirSync(dataDir, { recursive: true })
@@ -103,11 +104,53 @@ CREATE INDEX IF NOT EXISTS idx_habits_user ON habits(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 `)
 
-try { db.exec('ALTER TABLE users ADD COLUMN onboarding_done INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
-try { db.exec('ALTER TABLE habits ADD COLUMN time TEXT') } catch { /* already exists */ }
-try { db.exec('ALTER TABLE events ADD COLUMN recurrence TEXT') } catch { /* already exists */ }
-try { db.exec('ALTER TABLE events ADD COLUMN weekdays TEXT') } catch { /* already exists */ }
-try { db.exec('ALTER TABLE projects ADD COLUMN description TEXT') } catch { /* already exists */ }
+function addColumn(table, column, ddl) {
+  try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`) } catch { /* already exists */ }
+}
+
+addColumn('users', 'onboarding_done', 'INTEGER NOT NULL DEFAULT 0')
+addColumn('habits', 'time', 'TEXT')
+addColumn('events', 'recurrence', 'TEXT')
+addColumn('events', 'weekdays', 'TEXT')
+addColumn('projects', 'description', 'TEXT')
+addColumn('users', 'google_sub', 'TEXT')
+addColumn('users', 'google_refresh_enc', 'TEXT')
+addColumn('users', 'google_access_enc', 'TEXT')
+addColumn('users', 'google_token_expiry', 'INTEGER')
+addColumn('users', 'calendar_sync_token', 'TEXT')
+addColumn('users', 'calendar_id', 'TEXT')
+addColumn('users', 'calendar_connected', 'INTEGER NOT NULL DEFAULT 0')
+addColumn('users', 'last_calendar_sync', 'TEXT')
+addColumn('users', 'settings_json', 'TEXT')
+addColumn('events', 'google_event_id', 'TEXT')
+addColumn('events', 'google_etag', 'TEXT')
+addColumn('events', 'origin', "TEXT NOT NULL DEFAULT 'lifeos'")
+addColumn('events', 'updated_at', 'TEXT')
+addColumn('events', 'time_end', 'TEXT')
+addColumn('events', 'description', 'TEXT')
+addColumn('events', 'dirty', 'INTEGER NOT NULL DEFAULT 0')
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  prefix TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at TEXT
+);
+CREATE TABLE IF NOT EXISTS oauth_states (
+  id TEXT PRIMARY KEY,
+  purpose TEXT NOT NULL,
+  user_id TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_events_google ON events(user_id, google_event_id);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);
+`)
+
 db.exec(`
 UPDATE users SET onboarding_done = 1
 WHERE onboarding_done = 0 AND (
@@ -118,8 +161,11 @@ WHERE onboarding_done = 0 AND (
 )
 `)
 
-export function uid(prefix = 'id') {
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`
+export { uid }
+
+export function parseSettings(user) {
+  if (!user?.settings_json) return {}
+  try { return JSON.parse(user.settings_json) } catch { return {} }
 }
 
 export function loadState(userId) {
@@ -131,6 +177,7 @@ export function loadState(userId) {
   const events = db.prepare('SELECT * FROM events WHERE user_id = ?').all(userId)
   const trackingRows = db.prepare('SELECT * FROM tracking WHERE user_id = ?').all(userId)
   const buildings = db.prepare('SELECT * FROM buildings WHERE user_id = ?').all(userId)
+  const settings = parseSettings(user)
 
   const logsByHabit = {}
   if (habits.length) {
@@ -168,6 +215,9 @@ export function loadState(userId) {
     level: user.level,
     focusTaskId: user.focus_task_id,
     focusUntil: user.focus_until,
+    googleConnected: !!user.calendar_connected,
+    calendarLastSync: user.last_calendar_sync || null,
+    settings,
     projects: projects.map((p) => ({ id: p.id, name: p.name, status: p.status, color: p.color, icon: p.icon, description: p.description || '' })),
     tasks: tasks.map((t) => ({
       id: t.id,
@@ -199,10 +249,14 @@ export function loadState(userId) {
       title: e.title,
       date: e.date,
       time: e.time,
+      timeEnd: e.time_end || undefined,
       location: e.location || undefined,
+      description: e.description || undefined,
       done: !!e.done,
       recurrence: e.recurrence === 'weekly' ? 'weekly' : undefined,
       weekdays: e.weekdays ? JSON.parse(e.weekdays) : undefined,
+      origin: e.origin || 'lifeos',
+      googleEventId: e.google_event_id || undefined,
     })),
     tracking,
     buildings: buildings.map((b) => ({
@@ -226,16 +280,82 @@ export function award(user, amount) {
     cap = 1500 + lvl * 200
   }
   db.prepare('UPDATE users SET xp = ?, next_level_xp = ?, level = ? WHERE id = ?').run(total, cap, lvl, user.id)
+  user.xp = total
+  user.level = lvl
+  user.next_level_xp = cap
 }
 
 export function starterBuildings(userId) {
   const rows = [
-    ['b-igreja', 'Igreja', 'fe', 1, 10, '#7c3aed'],
-    ['b-acad', 'Academia', 'saude', 1, 10, '#ef4444'],
-    ['b-biblio', 'Biblioteca', 'estudos', 1, 10, '#f59e0b'],
-    ['b-oficina', 'Oficina', 'trabalho', 1, 10, '#4f46e5'],
-    ['b-casa', 'Casa', 'financas', 1, 10, '#16a34a'],
+    ['Igreja', 'fe', 1, 10, '#7c3aed'],
+    ['Academia', 'saude', 1, 10, '#ef4444'],
+    ['Biblioteca', 'estudos', 1, 10, '#f59e0b'],
+    ['Oficina', 'trabalho', 1, 10, '#4f46e5'],
+    ['Casa', 'financas', 1, 10, '#16a34a'],
   ]
   const ins = db.prepare('INSERT INTO buildings (id, user_id, name, area, level, progress, color) VALUES (?, ?, ?, ?, ?, ?, ?)')
-  for (const r of rows) ins.run(uid('b'), userId, r[1], r[2], r[3], r[4], r[5])
+  for (const r of rows) ins.run(uid('b'), userId, r[0], r[1], r[2], r[3], r[4])
+}
+
+export function mapHabitRow(h, logs = {}) {
+  return {
+    id: h.id,
+    name: h.name,
+    category: h.category,
+    frequency: typeof h.frequency === 'string' ? JSON.parse(h.frequency) : h.frequency,
+    xp: h.xp,
+    color: h.color,
+    iconBg: h.icon_bg,
+    time: h.time || undefined,
+    quantitative: h.quant_goal ? { goal: h.quant_goal, unit: h.quant_unit || 'un' } : undefined,
+    logs,
+  }
+}
+
+export function habitLogs(habitId) {
+  const logs = {}
+  for (const log of db.prepare('SELECT * FROM habit_logs WHERE habit_id = ?').all(habitId)) {
+    const n = Number(log.value)
+    logs[log.date] = Number.isFinite(n) && String(n) === log.value ? n : log.value === 'true'
+  }
+  return logs
+}
+
+export function hydrateHabits(userId) {
+  const habits = db.prepare('SELECT * FROM habits WHERE user_id = ?').all(userId)
+  return habits.map((h) => mapHabitRow(h, habitLogs(h.id)))
+}
+
+export function hydrateEvents(userId) {
+  return db.prepare('SELECT * FROM events WHERE user_id = ?').all(userId).map((e) => ({
+    id: e.id,
+    title: e.title,
+    date: e.date,
+    time: e.time,
+    timeEnd: e.time_end || undefined,
+    location: e.location || undefined,
+    description: e.description || undefined,
+    done: !!e.done,
+    recurrence: e.recurrence === 'weekly' ? 'weekly' : undefined,
+    weekdays: e.weekdays ? JSON.parse(e.weekdays) : undefined,
+    origin: e.origin || 'lifeos',
+    googleEventId: e.google_event_id || undefined,
+    dirty: !!e.dirty,
+  }))
+}
+
+export function hydrateTasks(userId) {
+  return db.prepare('SELECT * FROM tasks WHERE user_id = ?').all(userId).map((t) => ({
+    id: t.id,
+    title: t.title,
+    projectId: t.project_id || undefined,
+    area: t.area || undefined,
+    date: t.date || undefined,
+    time: t.time || undefined,
+    timeEnd: t.time_end || undefined,
+    priority: t.priority,
+    done: !!t.done,
+    archived: !!t.archived,
+    createdAt: t.created_at,
+  }))
 }

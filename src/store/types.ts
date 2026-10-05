@@ -36,10 +36,14 @@ export type EventItem = {
   title: string
   date: string
   time: string
+  timeEnd?: string
   location?: string
+  description?: string
   done?: boolean
   recurrence?: 'weekly'
   weekdays?: number[]
+  origin?: 'lifeos' | 'google'
+  googleEventId?: string
 }
 
 export type Project = {
@@ -93,4 +97,6 @@ export type LifeState = {
   buildings: Building[]
   focusTaskId: string | null
   focusUntil: number | null
+  googleConnected?: boolean
+  calendarLastSync?: string | null
 }
